@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Kanban Board</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            min-height: 100vh;
+            padding: 1rem;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 1rem;
+            color: #fff;
+            font-weight: 300;
+        }
+
+        .board {
+            display: flex;
+            gap: 1rem;
+            overflow-x: auto;
+            padding-bottom: 1rem;
+        }
+
+        .column {
+            background: #16213e;
+            border-radius: 8px;
+            min-width: 280px;
+            max-width: 280px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .column-header {
+            padding: 1rem;
+            font-weight: 600;
+            border-bottom: 2px solid #0f3460;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .column-header .count {
+            background: #0f3460;
+            padding: 0.2rem 0.6rem;
+            border-radius: 12px;
+            font-size: 0.8rem;
+        }
+
+        .column[data-id="backlog"] .column-header { border-color: #6c757d; }
+        .column[data-id="todo"] .column-header { border-color: #0d6efd; }
+        .column[data-id="blocked"] .column-header { border-color: #dc3545; }
+        .column[data-id="done"] .column-header { border-color: #198754; }
+
+        .cards {
+            flex: 1;
+            padding: 0.5rem;
+            min-height: 200px;
+        }
+
+        .card {
+            background: #1a1a2e;
+            border: 1px solid #0f3460;
+            border-radius: 6px;
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            cursor: grab;
+            transition: transform 0.1s, box-shadow 0.1s;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        .card.dragging {
+            opacity: 0.5;
+            cursor: grabbing;
+        }
+
+        .card-title {
+            font-weight: 500;
+            margin-bottom: 0.25rem;
+        }
+
+        .card-description {
+            font-size: 0.85rem;
+            color: #aaa;
+            margin-bottom: 0.25rem;
+        }
+
+        .card-context {
+            font-size: 0.75rem;
+            color: #666;
+            font-style: italic;
+        }
+
+        .card-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .card:hover .card-actions {
+            opacity: 1;
+        }
+
+        .card-actions button {
+            background: none;
+            border: none;
+            color: #888;
+            cursor: pointer;
+            font-size: 0.8rem;
+            padding: 0.2rem 0.4rem;
+        }
+
+        .card-actions button:hover {
+            color: #fff;
+        }
+
+        .add-card-btn {
+            margin: 0.5rem;
+            padding: 0.5rem;
+            background: transparent;
+            border: 1px dashed #0f3460;
+            border-radius: 6px;
+            color: #666;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .add-card-btn:hover {
+            border-color: #0d6efd;
+            color: #0d6efd;
+        }
+
+        /* Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.7);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background: #16213e;
+            border-radius: 8px;
+            padding: 1.5rem;
+            width: 90%;
+            max-width: 400px;
+        }
+
+        .modal h2 {
+            margin-bottom: 1rem;
+            font-weight: 400;
+        }
+
+        .modal label {
+            display: block;
+            margin-bottom: 0.25rem;
+            font-size: 0.9rem;
+            color: #aaa;
+        }
+
+        .modal input,
+        .modal textarea {
+            width: 100%;
+            padding: 0.75rem;
+            margin-bottom: 1rem;
+            background: #1a1a2e;
+            border: 1px solid #0f3460;
+            border-radius: 4px;
+            color: #eee;
+            font-family: inherit;
+            font-size: 16px; /* Prevents iOS zoom on focus */
+        }
+
+        .modal input:focus,
+        .modal textarea:focus {
+            outline: none;
+            border-color: #0d6efd;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 0.5rem;
+            justify-content: flex-end;
+        }
+
+        .modal-actions button {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .btn-save {
+            background: #0d6efd;
+            color: white;
+        }
+
+        .btn-cancel {
+            background: #333;
+            color: #aaa;
+        }
+
+        .btn-delete {
+            background: #dc3545;
+            color: white;
+            margin-right: auto;
+        }
+
+        /* Drop indicator */
+        .cards.drag-over {
+            background: rgba(13, 110, 253, 0.1);
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Kanban Board</h1>
+
+    <div class="board">
+        <div class="column" data-id="backlog">
+            <div class="column-header">
+                <span>Backlog</span>
+                <span class="count">0</span>
+            </div>
+            <div class="cards" data-column="backlog"></div>
+            <button class="add-card-btn" data-column="backlog">+ Add Card</button>
+        </div>
+
+        <div class="column" data-id="todo">
+            <div class="column-header">
+                <span>To Do</span>
+                <span class="count">0</span>
+            </div>
+            <div class="cards" data-column="todo"></div>
+            <button class="add-card-btn" data-column="todo">+ Add Card</button>
+        </div>
+
+        <div class="column" data-id="blocked">
+            <div class="column-header">
+                <span>Blocked</span>
+                <span class="count">0</span>
+            </div>
+            <div class="cards" data-column="blocked"></div>
+            <button class="add-card-btn" data-column="blocked">+ Add Card</button>
+        </div>
+
+        <div class="column" data-id="done">
+            <div class="column-header">
+                <span>Done</span>
+                <span class="count">0</span>
+            </div>
+            <div class="cards" data-column="done"></div>
+            <button class="add-card-btn" data-column="done">+ Add Card</button>
+        </div>
+    </div>
+
+    <!-- Modal for adding/editing cards -->
+    <div class="modal-overlay" id="cardModal">
+        <div class="modal">
+            <h2 id="modalTitle">Add Card</h2>
+            <label for="cardTitle">Title</label>
+            <input type="text" id="cardTitle" placeholder="Card title...">
+
+            <label for="cardDescription">Description</label>
+            <textarea id="cardDescription" rows="3" placeholder="Description..."></textarea>
+
+            <label for="cardContext">Context</label>
+            <input type="text" id="cardContext" placeholder="Additional context...">
+
+            <div class="modal-actions">
+                <button class="btn-delete" id="deleteBtn" style="display:none">Delete</button>
+                <button class="btn-cancel" id="cancelBtn">Cancel</button>
+                <button class="btn-save" id="saveBtn">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // State
+        let cards = [];
+        let editingCard = null;
+        let currentColumn = null;
+
+        // Load from localStorage
+        function loadState() {
+            const saved = localStorage.getItem('kanban-cards');
+            if (saved) {
+                cards = JSON.parse(saved);
+            }
+        }
+
+        // Save to localStorage
+        function saveState() {
+            localStorage.setItem('kanban-cards', JSON.stringify(cards));
+        }
+
+        // Generate unique ID
+        function genId() {
+            return Date.now().toString(36) + Math.random().toString(36).substr(2);
+        }
+
+        // Render all cards
+        function render() {
+            const columns = ['backlog', 'todo', 'blocked', 'done'];
+
+            columns.forEach(col => {
+                const container = document.querySelector(`.cards[data-column="${col}"]`);
+                const colCards = cards.filter(c => c.column === col).sort((a, b) => a.order - b.order);
+
+                container.innerHTML = colCards.map(card => `
+                    <div class="card" draggable="true" data-id="${card.id}">
+                        <div class="card-title">${escapeHtml(card.title)}</div>
+                        ${card.description ? `<div class="card-description">${escapeHtml(card.description)}</div>` : ''}
+                        ${card.context ? `<div class="card-context">${escapeHtml(card.context)}</div>` : ''}
+                        <div class="card-actions">
+                            <button onclick="editCard('${card.id}')">Edit</button>
+                        </div>
+                    </div>
+                `).join('');
+
+                // Update count
+                document.querySelector(`.column[data-id="${col}"] .count`).textContent = colCards.length;
+            });
+
+            // Re-attach drag listeners
+            attachDragListeners();
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Modal functions
+        function openModal(column, card = null) {
+            currentColumn = column;
+            editingCard = card;
+
+            document.getElementById('modalTitle').textContent = card ? 'Edit Card' : 'Add Card';
+            document.getElementById('cardTitle').value = card ? card.title : '';
+            document.getElementById('cardDescription').value = card ? card.description : '';
+            document.getElementById('cardContext').value = card ? card.context : '';
+            document.getElementById('deleteBtn').style.display = card ? 'block' : 'none';
+
+            document.getElementById('cardModal').classList.add('active');
+            document.getElementById('cardTitle').focus();
+        }
+
+        function closeModal() {
+            document.getElementById('cardModal').classList.remove('active');
+            editingCard = null;
+            currentColumn = null;
+        }
+
+        function saveCard() {
+            const title = document.getElementById('cardTitle').value.trim();
+            const description = document.getElementById('cardDescription').value.trim();
+            const context = document.getElementById('cardContext').value.trim();
+
+            if (!title) return;
+
+            if (editingCard) {
+                // Update existing
+                const idx = cards.findIndex(c => c.id === editingCard.id);
+                if (idx !== -1) {
+                    cards[idx].title = title;
+                    cards[idx].description = description;
+                    cards[idx].context = context;
+                }
+            } else {
+                // Add new
+                const colCards = cards.filter(c => c.column === currentColumn);
+                const maxOrder = colCards.length > 0 ? Math.max(...colCards.map(c => c.order)) : 0;
+
+                cards.push({
+                    id: genId(),
+                    title,
+                    description,
+                    context,
+                    column: currentColumn,
+                    order: maxOrder + 1
+                });
+            }
+
+            saveState();
+            render();
+            closeModal();
+        }
+
+        function deleteCard() {
+            if (!editingCard) return;
+            cards = cards.filter(c => c.id !== editingCard.id);
+            saveState();
+            render();
+            closeModal();
+        }
+
+        function editCard(id) {
+            const card = cards.find(c => c.id === id);
+            if (card) {
+                openModal(card.column, card);
+            }
+        }
+
+        // Drag and drop with reorder support (desktop + mobile touch)
+        let draggedCardId = null;
+        let draggedElement = null;
+        let touchStartY = 0;
+        let touchStartX = 0;
+        let placeholder = null;
+
+        function attachDragListeners() {
+            const cardEls = document.querySelectorAll('.card');
+            const containers = document.querySelectorAll('.cards');
+
+            cardEls.forEach(cardEl => {
+                // Desktop drag events
+                cardEl.addEventListener('dragstart', (e) => {
+                    draggedCardId = cardEl.dataset.id;
+                    cardEl.classList.add('dragging');
+                    e.dataTransfer.effectAllowed = 'move';
+                });
+
+                cardEl.addEventListener('dragend', () => {
+                    cardEl.classList.remove('dragging');
+                    draggedCardId = null;
+                    document.querySelectorAll('.drop-indicator').forEach(el => el.remove());
+                });
+
+                // Mobile touch events
+                cardEl.addEventListener('touchstart', handleTouchStart, { passive: false });
+                cardEl.addEventListener('touchmove', handleTouchMove, { passive: false });
+                cardEl.addEventListener('touchend', handleTouchEnd);
+            });
+
+            containers.forEach(container => {
+                container.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+
+                    const dragging = document.querySelector('.card.dragging');
+                    if (!dragging) return;
+
+                    const afterElement = getDragAfterElement(container, e.clientY);
+                    updateDropIndicator(container, afterElement);
+                });
+
+                container.addEventListener('dragleave', (e) => {
+                    if (!container.contains(e.relatedTarget)) {
+                        document.querySelectorAll('.drop-indicator').forEach(el => el.remove());
+                    }
+                });
+
+                container.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    document.querySelectorAll('.drop-indicator').forEach(el => el.remove());
+                    if (!draggedCardId) return;
+                    performDrop(container, e.clientY);
+                });
+            });
+        }
+
+        function handleTouchStart(e) {
+            const cardEl = e.currentTarget;
+            draggedCardId = cardEl.dataset.id;
+            draggedElement = cardEl;
+
+            const touch = e.touches[0];
+            touchStartX = touch.clientX;
+            touchStartY = touch.clientY;
+
+            // Delay to distinguish tap from drag
+            setTimeout(() => {
+                if (draggedElement) {
+                    draggedElement.classList.add('dragging');
+                }
+            }, 150);
+        }
+
+        function handleTouchMove(e) {
+            if (!draggedCardId || !draggedElement) return;
+            e.preventDefault();
+
+            const touch = e.touches[0];
+            const moveX = touch.clientX;
+            const moveY = touch.clientY;
+
+            // Only start dragging after some movement
+            if (Math.abs(moveX - touchStartX) < 10 && Math.abs(moveY - touchStartY) < 10) return;
+
+            draggedElement.classList.add('dragging');
+
+            // Find which column we're over
+            const containers = document.querySelectorAll('.cards');
+            let targetContainer = null;
+
+            containers.forEach(container => {
+                const rect = container.getBoundingClientRect();
+                if (moveX >= rect.left && moveX <= rect.right &&
+                    moveY >= rect.top && moveY <= rect.bottom) {
+                    targetContainer = container;
+                }
+            });
+
+            // Update drop indicator
+            document.querySelectorAll('.drop-indicator').forEach(el => el.remove());
+            if (targetContainer) {
+                const afterElement = getDragAfterElement(targetContainer, moveY);
+                updateDropIndicator(targetContainer, afterElement);
+            }
+        }
+
+        function handleTouchEnd(e) {
+            if (!draggedCardId || !draggedElement) return;
+
+            const touch = e.changedTouches[0];
+            const containers = document.querySelectorAll('.cards');
+            let targetContainer = null;
+
+            containers.forEach(container => {
+                const rect = container.getBoundingClientRect();
+                if (touch.clientX >= rect.left && touch.clientX <= rect.right &&
+                    touch.clientY >= rect.top && touch.clientY <= rect.bottom) {
+                    targetContainer = container;
+                }
+            });
+
+            document.querySelectorAll('.drop-indicator').forEach(el => el.remove());
+
+            if (targetContainer) {
+                performDrop(targetContainer, touch.clientY);
+            }
+
+            if (draggedElement) {
+                draggedElement.classList.remove('dragging');
+            }
+            draggedCardId = null;
+            draggedElement = null;
+        }
+
+        function updateDropIndicator(container, afterElement) {
+            document.querySelectorAll('.drop-indicator').forEach(el => el.remove());
+
+            const indicator = document.createElement('div');
+            indicator.className = 'drop-indicator';
+            indicator.style.cssText = 'height: 4px; background: #0d6efd; border-radius: 2px; margin: 4px 0;';
+
+            if (afterElement == null) {
+                container.appendChild(indicator);
+            } else {
+                container.insertBefore(indicator, afterElement);
+            }
+        }
+
+        function performDrop(container, clientY) {
+            const newColumn = container.dataset.column;
+            const card = cards.find(c => c.id === draggedCardId);
+            if (!card) return;
+
+            const afterElement = getDragAfterElement(container, clientY);
+            const colCards = cards.filter(c => c.column === newColumn && c.id !== card.id)
+                .sort((a, b) => a.order - b.order);
+
+            let newOrder;
+            if (afterElement == null) {
+                newOrder = colCards.length > 0 ? colCards[colCards.length - 1].order + 1 : 1;
+            } else {
+                const afterCard = cards.find(c => c.id === afterElement.dataset.id);
+                if (afterCard) {
+                    const afterIdx = colCards.findIndex(c => c.id === afterCard.id);
+                    if (afterIdx === 0) {
+                        newOrder = afterCard.order - 1;
+                    } else {
+                        const beforeCard = colCards[afterIdx - 1];
+                        newOrder = (beforeCard.order + afterCard.order) / 2;
+                    }
+                } else {
+                    newOrder = 1;
+                }
+            }
+
+            card.column = newColumn;
+            card.order = newOrder;
+            saveState();
+            render();
+        }
+
+        function getDragAfterElement(container, y) {
+            const draggableElements = [...container.querySelectorAll('.card:not(.dragging)')];
+
+            return draggableElements.reduce((closest, child) => {
+                const box = child.getBoundingClientRect();
+                const offset = y - box.top - box.height / 2;
+
+                if (offset < 0 && offset > closest.offset) {
+                    return { offset: offset, element: child };
+                } else {
+                    return closest;
+                }
+            }, { offset: Number.NEGATIVE_INFINITY }).element;
+        }
+
+        // Event listeners
+        document.querySelectorAll('.add-card-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                openModal(btn.dataset.column);
+            });
+        });
+
+        document.getElementById('saveBtn').addEventListener('click', saveCard);
+        document.getElementById('cancelBtn').addEventListener('click', closeModal);
+        document.getElementById('deleteBtn').addEventListener('click', deleteCard);
+
+        document.getElementById('cardModal').addEventListener('click', (e) => {
+            if (e.target.id === 'cardModal') closeModal();
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeModal();
+            if (e.key === 'Enter' && document.getElementById('cardModal').classList.contains('active')) {
+                saveCard();
+            }
+        });
+
+        // Init
+        loadState();
+        render();
+    </script>
+</body>
+</html>
