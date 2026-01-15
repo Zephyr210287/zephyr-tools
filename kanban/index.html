@@ -31,6 +31,7 @@
             gap: 1rem;
             overflow-x: auto;
             padding-bottom: 1rem;
+            min-height: calc(100vh - 5rem);
         }
 
         .column {
@@ -40,6 +41,7 @@
             max-width: 280px;
             display: flex;
             flex-direction: column;
+            flex: 1;
         }
 
         .column-header {
@@ -487,35 +489,44 @@
             });
         }
 
+        let isTap = true;
+        let tapTimeout = null;
+
         function handleTouchStart(e) {
             const cardEl = e.currentTarget;
             draggedCardId = cardEl.dataset.id;
             draggedElement = cardEl;
+            isTap = true;
 
             const touch = e.touches[0];
             touchStartX = touch.clientX;
             touchStartY = touch.clientY;
 
-            // Delay to distinguish tap from drag
-            setTimeout(() => {
-                if (draggedElement) {
+            // Long press to start drag
+            tapTimeout = setTimeout(() => {
+                if (draggedElement && isTap) {
+                    isTap = false;
                     draggedElement.classList.add('dragging');
                 }
-            }, 150);
+            }, 300);
         }
 
         function handleTouchMove(e) {
             if (!draggedCardId || !draggedElement) return;
-            e.preventDefault();
 
             const touch = e.touches[0];
             const moveX = touch.clientX;
             const moveY = touch.clientY;
 
-            // Only start dragging after some movement
-            if (Math.abs(moveX - touchStartX) < 10 && Math.abs(moveY - touchStartY) < 10) return;
-
-            draggedElement.classList.add('dragging');
+            // Check if moved enough to be a drag
+            if (Math.abs(moveX - touchStartX) > 10 || Math.abs(moveY - touchStartY) > 10) {
+                isTap = false;
+                if (tapTimeout) clearTimeout(tapTimeout);
+                draggedElement.classList.add('dragging');
+                e.preventDefault();
+            } else {
+                return;
+            }
 
             // Find which column we're over
             const containers = document.querySelectorAll('.cards');
@@ -538,7 +549,17 @@
         }
 
         function handleTouchEnd(e) {
+            if (tapTimeout) clearTimeout(tapTimeout);
+
             if (!draggedCardId || !draggedElement) return;
+
+            // If it was a tap (no significant movement), open edit modal
+            if (isTap) {
+                editCard(draggedCardId);
+                draggedCardId = null;
+                draggedElement = null;
+                return;
+            }
 
             const touch = e.changedTouches[0];
             const containers = document.querySelectorAll('.cards');
