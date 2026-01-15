@@ -308,17 +308,45 @@
         let editingCard = null;
         let currentColumn = null;
 
-        // Load from localStorage
-        function loadState() {
-            const saved = localStorage.getItem('kanban-cards');
-            if (saved) {
-                cards = JSON.parse(saved);
+        // API base URL (same origin)
+        const API_BASE = '';
+
+        // Load from server
+        async function loadState() {
+            try {
+                const response = await fetch(`${API_BASE}/api/cards`);
+                if (response.ok) {
+                    cards = await response.json();
+                } else {
+                    // Fallback to localStorage for offline use
+                    const saved = localStorage.getItem('kanban-cards');
+                    if (saved) {
+                        cards = JSON.parse(saved);
+                    }
+                }
+            } catch (e) {
+                // Fallback to localStorage if server unavailable
+                const saved = localStorage.getItem('kanban-cards');
+                if (saved) {
+                    cards = JSON.parse(saved);
+                }
             }
         }
 
-        // Save to localStorage
-        function saveState() {
+        // Save to server (bulk update)
+        async function saveState() {
+            // Always save to localStorage as backup
             localStorage.setItem('kanban-cards', JSON.stringify(cards));
+
+            try {
+                await fetch(`${API_BASE}/api/cards`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(cards)
+                });
+            } catch (e) {
+                console.warn('Could not save to server, saved locally');
+            }
         }
 
         // Generate unique ID
@@ -651,8 +679,10 @@
         });
 
         // Init
-        loadState();
-        render();
+        (async () => {
+            await loadState();
+            render();
+        })();
     </script>
 </body>
 </html>

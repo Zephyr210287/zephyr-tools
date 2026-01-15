@@ -1,6 +1,6 @@
 # Minimal Kanban Board
 
-A simple, self-contained kanban board in a single HTML file. No dependencies, no build step, no backend.
+A simple kanban board with optional backend for persistent storage.
 
 ## Features
 
@@ -9,21 +9,48 @@ A simple, self-contained kanban board in a single HTML file. No dependencies, no
 - Drag to reorder priority within columns
 - Mobile touch support
 - Cards with title, description, and context fields
-- Data persisted in localStorage
 - Dark theme
 
-## Usage
+## Storage Options
 
-Just open `index.html` in a browser, or serve it:
+### Browser Only (localStorage)
+Just open `index.html` in a browser. Data stays in your browser.
 
 ```bash
 python3 -m http.server 8000
 # Open http://localhost:8000
 ```
 
+### With Backend (JSON file persistence)
+Use the Python server for persistent storage that syncs across devices.
+
+```bash
+python3 server.py
+# Open http://localhost:8744
+```
+
+Data is stored in `data/cards.json`.
+
+### Docker
+```bash
+docker-compose up -d
+# Open http://localhost:8744
+```
+
+Data persists in a Docker volume.
+
+## API Endpoints
+
+- `GET /api/cards` - Get all cards
+- `PUT /api/cards` - Bulk update all cards
+- `POST /api/cards` - Add a card
+- `PUT /api/cards/:id` - Update a card
+- `DELETE /api/cards/:id` - Delete a card
+- `GET /api/health` - Health check
+
 ## Why?
 
-Sometimes you just want a kanban board without signing up for anything, without a database, without complexity. This is that.
+Sometimes you just want a kanban board without signing up for anything, without complexity. This is that.
 
 ## License
 

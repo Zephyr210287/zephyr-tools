@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  kanban:
+    build: .
+    ports:
+      - "8744:8744"
+    volumes:
+      - kanban-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  kanban-data:
