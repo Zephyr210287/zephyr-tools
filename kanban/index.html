@@ -100,36 +100,6 @@
             margin-bottom: 0.25rem;
         }
 
-        .card-context {
-            font-size: 0.75rem;
-            color: #666;
-            font-style: italic;
-        }
-
-        .card-actions {
-            display: flex;
-            gap: 0.5rem;
-            margin-top: 0.5rem;
-            opacity: 0;
-            transition: opacity 0.2s;
-        }
-
-        .card:hover .card-actions {
-            opacity: 1;
-        }
-
-        .card-actions button {
-            background: none;
-            border: none;
-            color: #888;
-            cursor: pointer;
-            font-size: 0.8rem;
-            padding: 0.2rem 0.4rem;
-        }
-
-        .card-actions button:hover {
-            color: #fff;
-        }
 
         .add-card-btn {
             margin: 0.5rem;
@@ -363,13 +333,9 @@
                 const colCards = cards.filter(c => c.column === col).sort((a, b) => a.order - b.order);
 
                 container.innerHTML = colCards.map(card => `
-                    <div class="card" draggable="true" data-id="${card.id}">
+                    <div class="card" draggable="true" data-id="${card.id}" onclick="editCard('${card.id}')">
                         <div class="card-title">${escapeHtml(card.title)}</div>
-                        ${card.description ? `<div class="card-description">${escapeHtml(card.description)}</div>` : ''}
-                        ${card.context ? `<div class="card-context">${escapeHtml(card.context)}</div>` : ''}
-                        <div class="card-actions">
-                            <button onclick="editCard('${card.id}')">Edit</button>
-                        </div>
+                        ${card.description ? `<div class="card-description">${truncate(escapeHtml(card.description), 60)}</div>` : ''}
                     </div>
                 `).join('');
 
@@ -385,6 +351,11 @@
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
+        }
+
+        function truncate(text, maxLen) {
+            if (!text || text.length <= maxLen) return text;
+            return text.substring(0, maxLen) + '...';
         }
 
         // Modal functions
