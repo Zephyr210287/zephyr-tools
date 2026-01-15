@@ -19,19 +19,11 @@
             padding: 1rem;
         }
 
-        h1 {
-            text-align: center;
-            margin-bottom: 1rem;
-            color: #fff;
-            font-weight: 300;
-        }
-
         .board {
             display: flex;
             gap: 1rem;
             overflow-x: auto;
             padding-bottom: 1rem;
-            min-height: calc(100vh - 5rem);
         }
 
         .column {
@@ -41,7 +33,6 @@
             max-width: 280px;
             display: flex;
             flex-direction: column;
-            flex: 1;
         }
 
         .column-header {
@@ -213,8 +204,6 @@
     </style>
 </head>
 <body>
-    <h1>Kanban Board</h1>
-
     <div class="board">
         <div class="column" data-id="backlog">
             <div class="column-header">
